@@ -18,6 +18,7 @@ Product teams collect feedback from app store reviews, G2, support tickets and N
 - Gives each theme a 0–100 priority score and a High / Medium / Low tier
 - Prints a summary sorted by priority with mention counts, share of total, % negative and an example quote per theme, plus the overall sentiment split
 - Ends with a "Top 3 to fix first" list, each with a real complaint from a customer
+- With `--html`, also writes a one-page visual report with charts you can open in any browser or send to your team
 
 ```
 Analyzed 55 reviews
@@ -69,14 +70,28 @@ git clone https://github.com/aryamanjain43/feedback-analyzer.git
 cd feedback-analyzer
 python analyze.py                       # sample data
 python analyze.py path/to/your.csv      # your own reviews
+python analyze.py --html                # also writes output/report.html
+python analyze.py your.csv --html my_report.html   # pick the file name
 ```
+
+## Visual report
+
+`--html` writes a single self-contained HTML file (inline CSS and SVG charts, no internet or extra packages needed) with:
+
+- Headline stats: reviews analyzed, % negative, % positive and the theme to fix first
+- A bar chart of mentions by theme
+- A stacked bar of positive / neutral / negative reviews per theme
+- The priority table with tiers
+- The "Top 3 to fix first" list with a customer quote for each
+
+It works on desktop and phone, so it is easy to share in Slack or email. See an example generated from the sample data: [docs/sample_report.html](docs/sample_report.html). Reports go to `output/`, which is ignored by git.
 
 ## Roadmap
 
 - [x] Theme tagging with an editable keyword taxonomy
 - [x] Sentiment scoring (positive / negative / neutral) per review
 - [x] Priority score per theme: how often it comes up × how negative it is
-- [ ] Visual report with charts
+- [x] Visual report with charts
 - [ ] AI mode: use an LLM to discover themes the keyword list misses
 
 ## Why I built this
@@ -91,5 +106,7 @@ feedback-analyzer/
 ├── src/themes.py           # theme taxonomy and tagging logic
 ├── src/sentiment.py        # lexicon-based sentiment scoring
 ├── src/priority.py         # priority score and tier per theme
+├── src/report.py           # self-contained HTML report with charts
+├── docs/sample_report.html # example report from the sample data
 └── data/sample_reviews.csv # 55 sample reviews from 4 sources
 ```

@@ -3,13 +3,16 @@
 Usage:
     python analyze.py                      # runs on the sample data
     python analyze.py path/to/reviews.csv  # your own CSV with a "text" column
+    python analyze.py --html               # also writes output/report.html
 """
 
+import argparse
 import csv
-import sys
+import os
 from collections import Counter
 
 from src.priority import priority_scores
+from src.report import write_report
 from src.sentiment import score_sentiment
 from src.themes import tag_themes
 
@@ -63,10 +66,18 @@ def print_report(counts, negatives, labels, examples, negative_examples, total):
 
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "data/sample_reviews.csv"
-    reviews = load_reviews(path)
+    parser = argparse.ArgumentParser(description="Group customer reviews into themes and rank what to fix first.")
+    parser.add_argument("path", nargs="?", default="data/sample_reviews.csv", help="CSV with a 'text' column")
+    parser.add_argument("--html", nargs="?", const="output/report.html", metavar="FILE",
+                        help="also write a visual HTML report (default: output/report.html)")
+    args = parser.parse_args()
+
+    reviews = load_reviews(args.path)
     counts, negatives, labels, examples, negative_examples = summarize(reviews)
     print_report(counts, negatives, labels, examples, negative_examples, len(reviews))
+    if args.html:
+        out = write_report(reviews, args.html, source_name=os.path.basename(args.path))
+        print(f"HTML report written to {out}\n")
 
 
 if __name__ == "__main__":
