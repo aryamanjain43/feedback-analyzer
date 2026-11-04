@@ -19,26 +19,28 @@ Product teams collect feedback from app store reviews, G2, support tickets and N
 - Prints a summary sorted by priority with mention counts, share of total, % negative and an example quote per theme, plus the overall sentiment split
 - Ends with a "Top 3 to fix first" list, each with a real complaint from a customer
 - With `--html`, also writes a one-page visual report with charts you can open in any browser or send to your team
+- With `--ai` (optional), asks Claude to find new themes in the reviews the keyword list tags as "Other"
 
 ```
-Analyzed 55 reviews
-Sentiment: 31% positive, 49% negative, 20% neutral
+Analyzed 63 reviews
+Sentiment: 27% positive, 52% negative, 21% neutral
 
 Theme          Mentions   Share  Negative  Priority  Tier    Example
 ----------------------------------------------------------------------------------------------------
-Performance           8     15%      100%       100  High    "Pages take forever to open on mobile"
-Pricing              12     22%       42%        62  Medium  "Good value for the price honestly"
-UI/UX                11     20%       45%        62  Medium  "Navigation menu is confusing"
-Onboarding            9     16%       44%        50  Medium  "Onboarding emails were clear and useful"
-Support               8     15%       50%        50  Medium  "The help center articles are outdated"
-Integrations          9     16%       22%        25  Low     "Would love a Zapier integration"
+Performance           8     13%      100%       100  High    "Pages take forever to open on mobile"
+Other                 8     13%       75%        75  High    "The app does not work with my screen rea"
+Pricing              12     19%       42%        62  Medium  "Good value for the price honestly"
+UI/UX                11     17%       45%        62  Medium  "Navigation menu is confusing"
+Onboarding            9     14%       44%        50  Medium  "Onboarding emails were clear and useful"
+Support               8     13%       50%        50  Medium  "The help center articles are outdated"
+Integrations          9     14%       22%        25  Low     "Would love a Zapier integration"
 
 Top 3 to fix first
-1. Performance (High, 100/100): 8 of 55 reviews bring it up and 8 of those are complaints.
+1. Performance (High, 100/100): 8 of 63 reviews bring it up and 8 of those are complaints.
    Customer quote: "Pages take forever to open on mobile"
-2. Pricing (Medium, 62/100): 12 of 55 reviews bring it up and 5 of those are complaints.
+2. Pricing (Medium, 62/100): 12 of 63 reviews bring it up and 5 of those are complaints.
    Customer quote: "Way too expensive for a small team"
-3. UI/UX (Medium, 62/100): 11 of 55 reviews bring it up and 5 of those are complaints.
+3. UI/UX (Medium, 62/100): 11 of 63 reviews bring it up and 5 of those are complaints.
    Customer quote: "Navigation menu is confusing"
 ```
 
@@ -72,6 +74,7 @@ python analyze.py                       # sample data
 python analyze.py path/to/your.csv      # your own reviews
 python analyze.py --html                # also writes output/report.html
 python analyze.py your.csv --html my_report.html   # pick the file name
+python analyze.py --ai                  # optional AI mode, see below
 ```
 
 ## Visual report
@@ -86,13 +89,32 @@ python analyze.py your.csv --html my_report.html   # pick the file name
 
 It works on desktop and phone, so it is easy to share in Slack or email. See an example generated from the sample data: [docs/sample_report.html](docs/sample_report.html). Reports go to `output/`, which is ignored by git.
 
+## AI mode
+
+The keyword list only knows the themes someone wrote down. Anything else lands in "Other", and in the sample data that bucket ranks second: 8 reviews about screen readers, contrast and personal data that no keyword catches. AI mode sends those reviews to Claude through the Anthropic API, asks it to propose new themes and assign each review to one, and merges the result into the normal terminal and HTML report. New themes are marked `*` in the terminal and `AI` in the HTML report, with a one-line description of each.
+
+It is optional. Without `--ai` the tool still needs no installs.
+
+1. Install the SDK: `pip install -r requirements-ai.txt`
+2. Get an API key from the [Anthropic Console](https://console.anthropic.com/) and set it in your shell (never commit it):
+   ```bash
+   export ANTHROPIC_API_KEY=your-key-here
+   ```
+3. Run it:
+   ```bash
+   python analyze.py --ai --html           # only "Other" reviews go to the API
+   python analyze.py --ai-all              # send every review, in batches, to catch extra themes
+   ```
+
+Set `ANTHROPIC_MODEL` to use a different Claude model. If the SDK or key is missing, the tool says so and falls back to keyword themes. Useful AI themes are worth copying into `src/themes.py` so the free keyword path catches them next time.
+
 ## Roadmap
 
 - [x] Theme tagging with an editable keyword taxonomy
 - [x] Sentiment scoring (positive / negative / neutral) per review
 - [x] Priority score per theme: how often it comes up × how negative it is
 - [x] Visual report with charts
-- [ ] AI mode: use an LLM to discover themes the keyword list misses
+- [x] AI mode: use an LLM to discover themes the keyword list misses
 
 ## Why I built this
 
@@ -107,6 +129,8 @@ feedback-analyzer/
 ├── src/sentiment.py        # lexicon-based sentiment scoring
 ├── src/priority.py         # priority score and tier per theme
 ├── src/report.py           # self-contained HTML report with charts
+├── src/ai_themes.py        # optional AI mode: Claude finds new themes
+├── requirements-ai.txt     # only needed for AI mode
 ├── docs/sample_report.html # example report from the sample data
-└── data/sample_reviews.csv # 55 sample reviews from 4 sources
+└── data/sample_reviews.csv # 63 sample reviews from 4 sources
 ```

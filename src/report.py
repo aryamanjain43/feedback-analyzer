@@ -10,6 +10,7 @@ The page has:
     - a stacked bar of positive / neutral / negative per theme
     - the priority table
     - the "Top 3 to fix first" list with a customer quote each
+    - with AI mode, the themes Claude found, marked "AI" in the table
 """
 
 import os
@@ -19,7 +20,7 @@ from html import escape
 
 from src.priority import priority_scores
 from src.sentiment import score_sentiment
-from src.themes import tag_themes
+from src.themes import review_themes
 
 SENTIMENTS = ("positive", "neutral", "negative")
 
@@ -29,7 +30,7 @@ def theme_sentiment(reviews):
     mix = defaultdict(Counter)
     for r in reviews:
         label, _ = score_sentiment(r["text"])
-        for theme in tag_themes(r["text"]):
+        for theme in review_themes(r):
             mix[theme][label] += 1
     return mix
 
@@ -70,8 +71,12 @@ def _stacked(mix, theme):
     )
 
 
-def build_html(reviews, source_name="reviews"):
-    """Return the full report as an HTML string."""
+def build_html(reviews, source_name="reviews", ai_themes=None):
+    """Return the full report as an HTML string.
+
+    ai_themes: optional {theme name: description} from AI mode.
+    """
+    ai_themes = ai_themes or {}
     total = len(reviews)
     mix = theme_sentiment(reviews)
     counts = Counter({t: sum(m.values()) for t, m in mix.items()})
@@ -81,7 +86,7 @@ def build_html(reviews, source_name="reviews"):
     examples, negative_examples = {}, {}
     for r in reviews:
         is_negative = score_sentiment(r["text"])[0] == "negative"
-        for theme in tag_themes(r["text"]):
+        for theme in review_themes(r):
             examples.setdefault(theme, r["text"])
             if is_negative:
                 negative_examples.setdefault(theme, r["text"])
@@ -120,7 +125,7 @@ def build_html(reviews, source_name="reviews"):
 
     # Priority table
     table_rows = "".join(
-        f"<tr><td>{escape(t)}</td><td class=\"r hide-sm\">{counts[t]}</td>"
+        f"<tr><td>{escape(t)}{AI_BADGE if t in ai_themes else ''}</td><td class=\"r hide-sm\">{counts[t]}</td>"
         f"<td class=\"r hide-sm\">{_pct(counts[t], total):.0f}%</td>"
         f"<td class=\"r\">{_pct(negatives[t], counts[t]):.0f}%</td>"
         f"<td class=\"r\"><strong>{score}</strong></td>"
@@ -141,6 +146,20 @@ def build_html(reviews, source_name="reviews"):
         f'<section><h2>Top {len(top)} to fix first</h2><ol class="top">{top_items}</ol></section>' if top else ""
     )
 
+    ai_section = ""
+    if ai_themes:
+        items = "".join(
+            f"<li><strong>{escape(t)}</strong>{AI_BADGE} <span class=\"count\">{counts[t]} reviews</span>"
+            f"<p>{escape(d)}</p></li>"
+            for t, d in sorted(ai_themes.items(), key=lambda kv: (-counts[kv[0]], kv[0]))
+        )
+        ai_section = (
+            '<section><h2>Themes found by AI mode</h2>'
+            '<p class="sub">The keyword list missed these. Claude grouped the unmatched reviews into new themes. '
+            'Worth adding the useful ones to the keyword taxonomy.</p>'
+            f'<ul class="ai-list">{items}</ul></section>'
+        )
+
     return TEMPLATE.format(
         css=CSS,
         source=escape(source_name),
@@ -150,18 +169,21 @@ def build_html(reviews, source_name="reviews"):
         sentiment_rows=sentiment_rows,
         table_rows=table_rows,
         top_section=top_section,
+        ai_section=ai_section,
     )
 
 
-def write_report(reviews, path, source_name="reviews"):
+def write_report(reviews, path, source_name="reviews", ai_themes=None):
     """Write the report to path (folders are created) and return the path."""
     folder = os.path.dirname(path)
     if folder:
         os.makedirs(folder, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        f.write(build_html(reviews, source_name))
+        f.write(build_html(reviews, source_name, ai_themes))
     return path
 
+
+AI_BADGE = '<span class="ai" title="Theme found by AI mode">AI</span>'
 
 CSS = """
 :root {
@@ -218,6 +240,13 @@ ol.top li + li::before { top: 16px; }
 .top-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 ol.top p { margin: 4px 0 8px; color: var(--ink-2); }
 blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--negative); background: #faf9f6; border-radius: 0 6px 6px 0; }
+.ai { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; margin-left: 6px;
+  border-radius: 999px; background: #ece8fb; color: #4b3a9e; vertical-align: 1px; }
+ul.ai-list { list-style: none; margin: 0; padding: 0; }
+ul.ai-list li { padding: 10px 0; border-top: 1px solid var(--line); }
+ul.ai-list li:first-child { border-top: 0; padding-top: 0; }
+ul.ai-list .count { color: var(--muted); font-size: 13px; }
+ul.ai-list p { margin: 2px 0 0; color: var(--ink-2); }
 footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 24px; }
 @media (max-width: 640px) {
   main { padding-top: 20px; }
@@ -271,6 +300,8 @@ TEMPLATE = """<!doctype html>
 </section>
 
 {top_section}
+
+{ai_section}
 
 <footer>Made with feedback-analyzer</footer>
 </main>

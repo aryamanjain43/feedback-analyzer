@@ -21,3 +21,14 @@ def tag_themes(text, themes=THEMES):
     lowered = text.lower()
     matched = [name for name, words in themes.items() if any(w in lowered for w in words)]
     return matched or ["Other"]
+
+
+def review_themes(review):
+    """Themes for one review row: keyword tags plus any AI mode added.
+
+    AI mode (src/ai_themes.py) stores its picks in review["ai_themes"]. When a
+    review has them, they replace "Other" and are added to keyword matches.
+    """
+    keyword = [t for t in tag_themes(review["text"]) if t != "Other"]
+    extra = [t for t in review.get("ai_themes", []) if t not in keyword]
+    return keyword + extra or ["Other"]
